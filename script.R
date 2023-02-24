@@ -1,8 +1,7 @@
 library(tidyverse)
-library(R.matlab)
 
-data_uhf <- readMat('uhf_data_r.mat')
-data_acust <- readMat('acustico_data_r.mat')
+data_uhf <- R.matlab::readMat('uhf_data_r.mat')
+data_acust <- R.matlab::readMat('acustico_data_r.mat')
 
 df_uhf <- data.frame(data_uhf$data.UHF)
 df_acust <- data.frame(data_acust$data.Acustico)
