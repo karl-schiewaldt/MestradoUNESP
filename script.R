@@ -4,6 +4,7 @@ library(dendextend)     #compara dendogramas
 library(factoextra)     #algoritmo de cluster e visualizacao
 library(fpc)            #algoritmo de cluster e visualizacao
 library(gridExtra)      #para a funcao grid arrange
+library(psych)
 
 ### CARREGA OS DADOS
 data_uhf <- R.matlab::readMat('uhf_data_r.mat')
@@ -49,15 +50,47 @@ rm(i)
 #renomeia variaveis
 colnames(df_uhf) <- lista_uhf
 colnames(df_acust) <- lista_acust
+rm(lista_uhf)
+rm(lista_acust)
+
+#train-test split
+sample <- sample(c(TRUE, FALSE), nrow(df_uhf), replace = TRUE, prob = c(0.7,0.3))
+train  <- df_uhf[sample, ]
+test   <- df_uhf[!sample, ]
 
 
 ### K-MEANS
 # número de clusters
-k <- 2
+k <- 3
 
 # constrói k-means
 fviz_nbclust(df_uhf, FUN = hcut, method = "wss")
-df_uhf.k2 <- kmeans(df_uhf, centers = k)
-fviz_cluster(df_uhf.k2, geom = 'point', data = df_uhf)
+df_uhf.k3 <- kmeans(df_uhf, centers = k)
+fviz_cluster(df_uhf.k3, geom = 'point', data = df_uhf)
 
-df_dj$grupo <- df_dj_norm.k4$cluster
+df_uhf_agrup <- df_uhf
+df_uhf_agrup$grupo <- df_uhf.k3$cluster
+
+
+
+### PCA
+df_uhf_desc <- df_uhf[, 1:100]
+df_uhf_desc_cor <- cor(df_uhf_desc)
+df_uhf_desc_std <- scale(df_uhf_desc)
+
+#bartlett: Se o teste for significativo, indica que a base de dados apresenta 
+#uma estrutura multivariada que justifica a aplicação da PCA
+#p-value < 0.05 (5% de significância)
+cortest.bartlett(df_uhf_desc_cor)
+bartlett.test(df_uhf_desc)
+
+#KMO: avalia a adequação da base de dados para a PCA, levando em conta 
+#a correlação entre as variáveis e a adequação da amostra. Um valor de KMO 
+#próximo a 1 indica uma alta adequação para a PCA.
+KMO(df_uhf_desc)
+
+#aplica PCA
+pca_desc <- prcomp(df_uhf_desc_std, scale. = FALSE)
+summary(pca_desc)
+
+comp_desc <- data.frame(pca_desc$x[, 1:3])
