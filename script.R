@@ -5,6 +5,7 @@ library(factoextra)     #algoritmo de cluster e visualizacao
 library(fpc)            #algoritmo de cluster e visualizacao
 library(gridExtra)      #para a funcao grid arrange
 library(psych)
+library(plotly)
 
 ### CARREGA OS DADOS
 data_uhf <- R.matlab::readMat('uhf_data_r.mat')
@@ -53,11 +54,13 @@ colnames(df_acust) <- lista_acust
 rm(lista_uhf)
 rm(lista_acust)
 
-#train-test split
-sample <- sample(c(TRUE, FALSE), nrow(df_uhf), replace = TRUE, prob = c(0.7,0.3))
-train  <- df_uhf[sample, ]
-test   <- df_uhf[!sample, ]
+df_uhf <- df_uhf %>% 
+  mutate(t = seq(from = 0, to = 1, by = 1/nrow(df_uhf))) %>% 
+  select(t, everything)
 
+df_uhf %>% select(a, desc_bucha2) %>% rename(t = 1, y = 2) %>% 
+  ggplot(., aes(x = t, y = y)) + 
+    geom_line()
 
 ### K-MEANS
 # número de clusters
