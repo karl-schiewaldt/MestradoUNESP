@@ -9,7 +9,6 @@ library(plotly)
 library(psych)
 library(caret)
 library(stats)
-library(torch)
 
 ### CARREGA OS DADOS
 data_uhf <- R.matlab::readMat('uhf_data_r.mat')
@@ -59,19 +58,22 @@ rm(lista_uhf)
 rm(lista_acust)
 
 
+
+
+
 #### PLOT - EXPLORANDO DADOS
-desc <- df_uhf %>% 
-  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = desc_bucha1)) + 
+desc <- df_uhf[900:1300, ] %>%  
+  ggplot(., aes(x = seq(1:nrow(df_uhf[900:1300, ])), y = desc_bucha1)) + 
   geom_line() + 
   labs(x = 't', y = 'amplitude', title = 'descarga na bucha')
 
-curto <- df_uhf %>% 
-  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = curto_circ1)) + 
+curto <- df_uhf[900:1300, ] %>% 
+  ggplot(., aes(x = seq(1:nrow(df_uhf[900:1300, ])), y = curto_circ1)) + 
   geom_line() + 
   labs(x = 't', y = 'amplitude', title = 'curto-circuito')
 
-ruido <- df_uhf %>% 
-  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = ruido1)) + 
+ruido <- df_uhf[900:1300, ] %>% 
+  ggplot(., aes(x = seq(1:nrow(df_uhf[900:1300, ])), y = ruido1)) + 
   geom_line() + 
   labs(x = 't', y = 'amplitude', title = 'ruido')
 
@@ -95,7 +97,7 @@ df_uhf %>%
 df_uhf %>% 
   mutate(t = seq(1:nrow(df_uhf))) %>% 
   select(t, everything()) %>% 
-  reshape2::melt(., id = 't') %>% View
+  reshape2::melt(., id = 't') %>% 
   mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
                            grepl(pattern = 'curto', x = variable) ~ 2, 
                            grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
@@ -107,12 +109,36 @@ df_uhf %>%
 
 
 #### PROCESSAMENTO - RMS E FFT
+# RMS
 df_rms <- data.frame(sqrt(colSums(df_uhf^2)/nrow(df_uhf)))
 rownames(df_rms) <- NULL
 df_rms <- df_rms %>% mutate(tipo = c(rep(1, times = 100), 
                                      rep(2, times = 100), 
                                      rep(3, times = 200))) %>% 
   rename(rms = 1) %>% select(rms, tipo)
+
+# FFT
+df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
+  filter(t >= 900 & t <= 1300)
+
+spec <- spectrum(df_fft[, 2:ncol(df_fft)])
+
+a <- data.frame(spec$spec)
+colnames(a) <- spec$snames
+a$t <- spec$freq
+a <- a %>% select(t, everything())
+
+a %>% 
+  reshape2::melt(., id = 't') %>% 
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                         grepl(pattern = 'curto', x = variable) ~ 2, 
+                         grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+  filter(grepl(pattern = 'ruido', x = variable)) %>%
+  #filter(!grepl(pattern = 'desc', x = variable)) %>%  
+  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
+  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
+
 
 
 
