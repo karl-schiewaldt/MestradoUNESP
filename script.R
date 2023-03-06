@@ -4,8 +4,12 @@ library(dendextend)     #compara dendogramas
 library(factoextra)     #algoritmo de cluster e visualizacao
 library(fpc)            #algoritmo de cluster e visualizacao
 library(gridExtra)      #para a funcao grid arrange
-library(psych)
+library(ggplot2)
 library(plotly)
+library(psych)
+library(caret)
+library(stats)
+library(torch)
 
 ### CARREGA OS DADOS
 data_uhf <- R.matlab::readMat('uhf_data_r.mat')
@@ -17,7 +21,7 @@ df_acust <- data.frame(t(data_acust$data.Acustico))
 Fs_uhf <- data_uhf$Fs[1]
 Fs_acust <- data_acust$Fs[1]
 
-### AJUSTANDO OS DADOS
+### AJUSTANDO OS DATAFRAMES
 lista_uhf <- c()
 lista_acust <- c()
 
@@ -54,13 +58,70 @@ colnames(df_acust) <- lista_acust
 rm(lista_uhf)
 rm(lista_acust)
 
-df_uhf <- df_uhf %>% 
-  mutate(t = seq(from = 0, to = 1, by = 1/nrow(df_uhf))) %>% 
-  select(t, everything)
 
-df_uhf %>% select(a, desc_bucha2) %>% rename(t = 1, y = 2) %>% 
-  ggplot(., aes(x = t, y = y)) + 
-    geom_line()
+#### PLOT - EXPLORANDO DADOS
+desc <- df_uhf %>% 
+  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = desc_bucha1)) + 
+  geom_line() + 
+  labs(x = 't', y = 'amplitude', title = 'descarga na bucha')
+
+curto <- df_uhf %>% 
+  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = curto_circ1)) + 
+  geom_line() + 
+  labs(x = 't', y = 'amplitude', title = 'curto-circuito')
+
+ruido <- df_uhf %>% 
+  ggplot(., aes(x = seq(1:nrow(df_uhf)), y = ruido1)) + 
+  geom_line() + 
+  labs(x = 't', y = 'amplitude', title = 'ruido')
+
+grid.arrange(desc, curto, ruido, 
+             ncol = 1, nrow = 3)
+
+# plot de todos os sinais (exceto ruido) no mesmo eixo
+df_uhf %>% 
+  mutate(t = seq(1:nrow(df_uhf))) %>% 
+  select(t, everything()) %>% 
+  reshape2::melt(., id = 't') %>% 
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                           grepl(pattern = 'curto', x = variable) ~ 2, 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+  filter(!grepl(pattern = 'ruido', x = variable)) %>% 
+  #filter(t >= 900 & t <= 1300) %>% 
+  ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
+  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude')
+
+# plot de todos os sinais (exceto ruido), dividindo por tipo de falha
+df_uhf %>% 
+  mutate(t = seq(1:nrow(df_uhf))) %>% 
+  select(t, everything()) %>% 
+  reshape2::melt(., id = 't') %>% View
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                           grepl(pattern = 'curto', x = variable) ~ 2, 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+  filter(!grepl(pattern = 'ruido', x = variable)) %>% 
+  #filter(t >= 900 & t <= 1300) %>% 
+  ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  geom_line() + labs(x = 't', y = 'amplitude', colour = 'grupo')
+
+
+
+#### PROCESSAMENTO - RMS E FFT
+df_rms <- data.frame(sqrt(colSums(df_uhf^2)/nrow(df_uhf)))
+rownames(df_rms) <- NULL
+df_rms <- df_rms %>% mutate(tipo = c(rep(1, times = 100), 
+                                     rep(2, times = 100), 
+                                     rep(3, times = 200))) %>% 
+  rename(rms = 1) %>% select(rms, tipo)
+
+
+
+df_rms.k3 <- kmeans(df_rms[, 1], centers = 3)
+
+df_rms$cluster <- as.factor(df_rms.k3$cluster)
+df_rms <- df_rms %>% mutate(tipo = as.factor(tipo))
+
+confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
 
 ### K-MEANS
 # número de clusters
