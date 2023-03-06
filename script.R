@@ -117,30 +117,6 @@ df_rms <- df_rms %>% mutate(tipo = c(rep(1, times = 100),
                                      rep(3, times = 200))) %>% 
   rename(rms = 1) %>% select(rms, tipo)
 
-# FFT
-df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
-  filter(t >= 900 & t <= 1300)
-
-spec <- spectrum(df_fft[, 2:ncol(df_fft)])
-
-a <- data.frame(spec$spec)
-colnames(a) <- spec$snames
-a$t <- spec$freq
-a <- a %>% select(t, everything())
-
-a %>% 
-  reshape2::melt(., id = 't') %>% 
-  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
-                         grepl(pattern = 'curto', x = variable) ~ 2, 
-                         grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
-  filter(grepl(pattern = 'ruido', x = variable)) %>%
-  #filter(!grepl(pattern = 'desc', x = variable)) %>%  
-  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
-  ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
-  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
-
-
-
 
 df_rms.k3 <- kmeans(df_rms[, 1], centers = 3)
 
@@ -148,6 +124,56 @@ df_rms$cluster <- as.factor(df_rms.k3$cluster)
 df_rms <- df_rms %>% mutate(tipo = as.factor(tipo))
 
 confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
+
+
+# FFT
+df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
+  filter(t >= 900 & t <= 1300)
+
+#abs(fft(df_fft[, 2]))
+#teste <- spectrum(df_fft[, 2], log = 'no')
+
+spec <- spectrum(df_fft[, 2:ncol(df_fft)], log = 'no')
+
+spec_uhf <- data.frame(spec$spec)
+colnames(spec_uhf) <- spec$snames
+spec_uhf$t <- spec$freq
+spec_uhf <- spec_uhf %>% select(t, everything())
+
+spec_uhf %>% 
+  reshape2::melt(., id = 't') %>% 
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                           grepl(pattern = 'curto', x = variable) ~ 2, 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+  #filter(variable == 'desc_bucha1') %>% 
+  filter(!grepl(pattern = 'ruido', x = variable)) %>%
+  #filter(!grepl(pattern = 'curto', x = variable)) %>%  
+  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
+  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
+
+spec_uhf %>% 
+  reshape2::melt(., id = 't') %>% 
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                           grepl(pattern = 'curto', x = variable) ~ 2, 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+  filter(variable == 'desc_bucha1') %>% 
+  #filter(!grepl(pattern = 'ruido', x = variable)) %>%
+  #filter(!grepl(pattern = 'curto', x = variable)) %>%  
+  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
+
+
+fft <- abs(fft(df_fft[, 2]))
+fft <- fft[200:401]
+
+
+fft <- data.frame(spec$freq, fft) %>% rename(freq = 1, fft = 2)
+
+ggplot(fft, aes(x = freq, y = fft)) +
+  geom_line()
+
 
 ### K-MEANS
 # número de clusters
