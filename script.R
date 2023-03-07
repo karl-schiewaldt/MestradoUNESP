@@ -130,9 +130,7 @@ confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
 df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
   filter(t >= 900 & t <= 1300)
 
-#abs(fft(df_fft[, 2]))
-#teste <- spectrum(df_fft[, 2], log = 'no')
-
+# calcula espectro
 spec <- spectrum(df_fft[, 2:ncol(df_fft)], log = 'no')
 
 spec_uhf <- data.frame(spec$spec)
@@ -156,7 +154,7 @@ spec_uhf %>%
   reshape2::melt(., id = 't') %>% 
   mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
                            grepl(pattern = 'curto', x = variable) ~ 2, 
-                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% View
   filter(variable == 'desc_bucha1') %>% 
   #filter(!grepl(pattern = 'ruido', x = variable)) %>%
   #filter(!grepl(pattern = 'curto', x = variable)) %>%  
@@ -165,14 +163,77 @@ spec_uhf %>%
   geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
 
 
-fft <- abs(fft(df_fft[, 2]))
-fft <- fft[200:401]
+# calcula fft
+fft <- data.frame()
+for(i in 2:ncol(df_fft)) {
+  fft <- rbind(fft, 
+               abs(fft(df_fft[, i])))
+}
+colnames(fft) <- NULL
+fft <- data.frame(fft[, 200:401])
 
 
-fft <- data.frame(spec$freq, fft) %>% rename(freq = 1, fft = 2)
+# plotando FFT
+fft2 <- data.frame(t(fft))
+colnames(fft2) <- colnames(df_uhf)
+fft2$freq <- spec$freq
 
-ggplot(fft, aes(x = freq, y = fft)) +
-  geom_line()
+fft2 %>% 
+  select(freq, everything()) %>% 
+  reshape2::melt(., id = 'freq') %>% 
+  mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
+                           grepl(pattern = 'curto', x = variable) ~ 2, 
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
+#filter(variable == 'desc_bucha1') %>% 
+  #filter(!grepl(pattern = 'ruido', x = variable)) %>%
+  #filter(!grepl(pattern = 'curto', x = variable)) %>%  
+  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  ggplot(., aes(x = freq, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
+# fim plot
+
+
+fft.k3 <- kmeans(fft, centers = 3)
+fviz_cluster(fft.k3, geom = 'point', data = fft[, 3:ncol(fft)])
+
+
+fft <- fft %>% mutate(cluster = factor(fft.k3$cluster), 
+                      grupo = factor(c(rep('descarga', times = 100), 
+                                       rep('curto', times = 100), 
+                                       rep('ruido', times = 200))), 
+                      tipo = colnames(df_uhf)) %>% 
+  select(tipo, grupo, cluster, everything())
+
+confusionMatrix(data = fft$cluster, reference = fft$grupo)
+table(fft$cluster, fft$grupo)
+
+
+
+a <- fft
+colnames(a) <- c('tipo', 'grupo', 'cluster', spec$freq)
+a %>% 
+  reshape2::melt(., id = c('tipo', 'grupo', 'cluster')) %>% 
+  rename(f = variable) %>% 
+  arrange(tipo) %>% 
+  #filter(variable == 'desc_bucha1') %>% 
+  filter(grupo != 'ruido') %>% 
+  filter(grupo != 'curto') %>%  
+  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  ggplot(., aes(x = f, y = value, group = factor(cluster), colour = factor(cluster))) + 
+  geom_line() + labs(x = 't', y = 'amplitude', colour = 'grupo')
+  
+
+
+
+
+
+
+df_rms.k3 <- kmeans(fft, centers = 3)
+
+df_rms$cluster <- as.factor(df_rms.k3$cluster)
+df_rms <- df_rms %>% mutate(tipo = as.factor(tipo))
+
+confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
 
 
 ### K-MEANS
