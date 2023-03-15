@@ -110,7 +110,7 @@ df_uhf %>%
 
 
 #### PROCESSAMENTO - RMS E FFT
-# RMS
+### RMS
 df_rms <- data.frame(sqrt(colSums(df_uhf^2)/nrow(df_uhf)))
 rownames(df_rms) <- NULL
 df_rms <- df_rms %>% mutate(tipo = c(rep(1, times = 100), 
@@ -128,7 +128,7 @@ confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
 
 
 
-# FFT
+### SPEC
 df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
   filter(t >= 900 & t <= 1300)
 
@@ -168,12 +168,6 @@ spec_uhf %>%
   geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
 
 
-
-
-
-
-
-
 ### FFT + kurtosis
 # sinais: [1] // pontos: [2]
 kurt <- numeric(dim(df_uhf)[2])
@@ -199,12 +193,7 @@ table(fft$grupo, fft$cluster)
 ### /FFT + kurtosis
 
 
-
-Re(fft[,1]) %>% View
-
-
-
-# calcula fft
+### FFT
 fft <- data.frame()
 for(i in 2:ncol(df_fft)) {
   fft <- rbind(fft, 
