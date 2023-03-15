@@ -196,7 +196,6 @@ fft <- fft %>% mutate(grupo = case_when(grepl(pattern = 'desc', x = sinal) ~ 'de
                                         grepl(pattern = 'ruido', x = sinal) ~ 'ruido'))
 
 table(fft$grupo, fft$cluster)
-
 ### /FFT + kurtosis
 
 
