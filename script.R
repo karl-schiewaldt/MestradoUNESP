@@ -9,6 +9,7 @@ library(plotly)
 library(psych)
 library(caret)
 library(stats)
+library(moments)
 
 ### CARREGA OS DADOS
 data_uhf <- R.matlab::readMat('uhf_data_r.mat')
@@ -102,7 +103,7 @@ df_uhf %>%
                            grepl(pattern = 'curto', x = variable) ~ 2, 
                            grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
   filter(!grepl(pattern = 'ruido', x = variable)) %>% 
-  #filter(t >= 900 & t <= 1300) %>% 
+  filter(t >= 900 & t <= 1300) %>% 
   ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
   geom_line() + labs(x = 't', y = 'amplitude', colour = 'grupo')
 
@@ -126,6 +127,7 @@ df_rms <- df_rms %>% mutate(tipo = as.factor(tipo))
 confusionMatrix(data = df_rms$cluster, reference = df_rms$tipo)
 
 
+
 # FFT
 df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>% 
   filter(t >= 900 & t <= 1300)
@@ -133,11 +135,13 @@ df_fft <- df_uhf %>% mutate(t = 1:nrow(df_uhf)) %>% select(t, everything()) %>%
 # calcula espectro
 spec <- spectrum(df_fft[, 2:ncol(df_fft)], log = 'no')
 
+# prepara DF para plot
 spec_uhf <- data.frame(spec$spec)
 colnames(spec_uhf) <- spec$snames
 spec_uhf$t <- spec$freq
 spec_uhf <- spec_uhf %>% select(t, everything())
 
+# plot dos espectros categorizados por falha
 spec_uhf %>% 
   reshape2::melt(., id = 't') %>% 
   mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
@@ -146,21 +150,59 @@ spec_uhf %>%
   #filter(variable == 'desc_bucha1') %>% 
   filter(!grepl(pattern = 'ruido', x = variable)) %>%
   #filter(!grepl(pattern = 'curto', x = variable)) %>%  
-  #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
-  ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
+  ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
+  #ggplot(., aes(x = t, y = value, group = variable, colour = variable)) + 
   geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
 
+# plot de um único espectro
 spec_uhf %>% 
   reshape2::melt(., id = 't') %>% 
   mutate(grupo = case_when(grepl(pattern = 'desc', x = variable) ~ 1, 
                            grepl(pattern = 'curto', x = variable) ~ 2, 
-                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% View
+                           grepl(pattern = 'ruido', x = variable) ~ 3)) %>% 
   filter(variable == 'desc_bucha1') %>% 
   #filter(!grepl(pattern = 'ruido', x = variable)) %>%
   #filter(!grepl(pattern = 'curto', x = variable)) %>%  
   #ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
   ggplot(., aes(x = t, y = value, group = factor(grupo), colour = factor(grupo))) + 
   geom_line(show.legend = FALSE) + labs(x = 't', y = 'amplitude', colour = 'grupo')
+
+
+
+
+
+
+
+
+### FFT + kurtosis
+# sinais: [1] // pontos: [2]
+kurt <- numeric(dim(df_uhf)[2])
+
+# aplica FFT
+fft <- data.frame(mvfft(as.matrix(df_uhf)))
+
+for (i in 1:ncol(fft)) {
+  kurt[i] <- kurtosis(Re(fft[,i]))
+}
+
+fft <- data.frame(t(fft))
+fft$kurt <- kurt
+
+fft.k3 <- kmeans(fft[,3002], centers = 3)
+fft$cluster <- fft.k3$cluster
+fft$sinal <- rownames(fft)
+fft <- fft %>% mutate(grupo = case_when(grepl(pattern = 'desc', x = sinal) ~ 'desc', 
+                                        grepl(pattern = 'curto', x = sinal) ~ 'curto', 
+                                        grepl(pattern = 'ruido', x = sinal) ~ 'ruido'))
+
+table(fft$grupo, fft$cluster)
+
+### /FFT + kurtosis
+
+
+
+Re(fft[,1]) %>% View
+
 
 
 # calcula fft
